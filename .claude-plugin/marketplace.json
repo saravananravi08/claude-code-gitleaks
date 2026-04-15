@@ -1,0 +1,13 @@
+{
+  "name": "claude-gitleaks",
+  "owner": {
+    "name": "saravananravi08"
+  },
+  "plugins": [
+    {
+      "name": "gitleaks",
+      "source": "./",
+      "description": "Secret detection plugin that scans staged files before git commit/push to prevent credentials from leaking"
+    }
+  ]
+}

@@ -2,24 +2,8 @@
   "name": "gitleaks",
   "description": "Secret detection plugin that scans staged files before git commit/push to prevent credentials from leaking",
   "version": "1.0.0",
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/pre_bash.js"
-          }
-        ]
-      }
-    ]
-  },
-  "skills": [
-    {
-      "name": "scan",
-      "path": "skills/scan",
-      "description": "Manually run a gitleaks scan on the repository or specific files"
-    }
-  ]
+  "author": {
+    "name": "saravananravi08",
+    "url": "https://github.com/saravananravi08"
+  }
 }
