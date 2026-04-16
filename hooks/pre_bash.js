@@ -1,13 +1,20 @@
 #!/usr/bin/env node
 /**
- * pre_bash.js - Gitleaks PreToolUse Hook
+ * pre_bash.js - Gitleaks PreToolUse Hook (Embedded Scanner)
  *
  * Intercepts Bash tool calls for git commit/push and scans staged files
  * for secrets before allowing the operation to proceed.
+ *
+ * Uses embedded secret detection patterns (222 rules from gitleaks)
+ * No external dependencies - pure Node.js regex matching.
  */
 
-const { execSync, spawn } = require('child_process');
+const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
+
+// Import embedded rules
+const { scanFile } = require('./rules');
 
 // Git commands that modify remote state and should be scanned
 const RISKY_COMMANDS = ['commit', 'push', 'merge', 'cherry-pick'];
@@ -35,103 +42,70 @@ function getGitRoot() {
 }
 
 /**
- * Get list of staged files in the current commit
+ * Get list of staged files
  */
 function getStagedFiles() {
   try {
-    const files = execSync('git diff --cached --name-only 2>/dev/null', {
+    const output = execSync('git diff --cached --name-only 2>/dev/null', {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe']
-    }).trim().split('\n').filter(f => f.length > 0);
-    return files;
+    }).trim();
+
+    if (!output) return [];
+
+    return output.split('\n').filter(f => f.length > 0);
   } catch {
     return [];
   }
 }
 
 /**
- * Run gitleaks on staged files
- * Uses: gitleaks git --staged <repo-path>
+ * Get staged content for a specific file
  */
-function runGitleaksScan(repoPath) {
-  return new Promise((resolve) => {
-    const findings = [];
+function getStagedContent(filePath) {
+  try {
+    // Use git show to get staged content
+    const content = execSync(`git show :${filePath} 2>/dev/null`, {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    return content;
+  } catch {
+    return null;
+  }
+}
 
-    // Try gitleaks git --staged first (preferred method)
-    let args = ['git', '--staged', repoPath, '--no-git', '-v'];
+/**
+ * Format findings for display
+ */
+function formatFindings(findings) {
+  const lines = [];
 
-    try {
-      const proc = spawn('gitleaks', args, {
-        cwd: repoPath,
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
+  // Group by file
+  const byFile = {};
+  for (const f of findings) {
+    if (!byFile[f.file]) byFile[f.file] = [];
+    byFile[f.file].push(f);
+  }
 
-      let stdout = '';
-      let stderr = '';
-
-      proc.stdout.on('data', (data) => {
-        stdout += data.toString();
-      });
-
-      proc.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      proc.on('close', (code) => {
-        // Parse gitleaks output
-        const output = stdout + stderr;
-
-        // Check for secret findings
-        if (output.includes('LEAK') || output.includes('Finding') || code === 1) {
-          // Secrets found
-          const lines = output.split('\n').filter(l =>
-            l.includes('LEAK') ||
-            l.includes('Finding') ||
-            l.includes('file://') ||
-            l.match(/^\s*\[/) // Rule match lines
-          );
-
-          resolve({
-            blocked: true,
-            findings: lines.slice(0, 20),
-            rawOutput: output.substring(0, 2000)
-          });
-        } else {
-          resolve({
-            blocked: false,
-            findings: [],
-            rawOutput: output.substring(0, 500)
-          });
-        }
-      });
-
-      // Timeout after 30 seconds
-      setTimeout(() => {
-        proc.kill();
-        resolve({
-          blocked: false,
-          findings: [],
-          error: 'Gitleaks scan timed out, allowing operation'
-        });
-      }, 30000);
-
-    } catch (err) {
-      resolve({
-        blocked: false,
-        findings: [],
-        error: `Gitleaks check skipped: ${err.message}`
-      });
+  for (const [file, fileFindings] of Object.entries(byFile)) {
+    lines.push(`\n[${file}]`);
+    for (const finding of fileFindings) {
+      lines.push(`  Line ${finding.line}: ${finding.description} (${finding.ruleId})`);
+      lines.push(`    Match: ${finding.match.trim()}`);
     }
-  });
+  }
+
+  return lines.join('\n');
 }
 
 /**
  * Main hook handler
  */
-async function main() {
+function main() {
   let input;
   try {
-    input = JSON.parse(require('fs').readFileSync(0, 'utf-8'));
+    input = JSON.parse(fs.readFileSync(0, 'utf-8'));
   } catch {
     process.exit(0);
   }
@@ -150,45 +124,48 @@ async function main() {
     process.exit(0);
   }
 
-  // Check if gitleaks is installed
-  try {
-    execSync('which gitleaks', { stdio: 'pipe' });
-  } catch {
-    console.error('Gitleaks not installed. Run: brew install gitleaks');
-    process.exit(0);
-  }
-
-  // Get repo root and run scan
+  // Get repo root and staged files
   const repoRoot = getGitRoot();
   const stagedFiles = getStagedFiles();
 
-  // Skip if no staged files (nothing to scan)
+  // Skip if no staged files
   if (stagedFiles.length === 0) {
-    console.error('No staged files to scan');
+    console.error('Gitleaks: No staged files to scan');
     process.exit(0);
   }
 
   console.error(`Gitleaks: Scanning ${stagedFiles.length} staged files...`);
 
-  const scanResult = await runGitleaksScan(repoRoot);
+  // Scan each staged file
+  const allFindings = [];
 
-  if (scanResult.blocked) {
+  for (const file of stagedFiles) {
+    const content = getStagedContent(file);
+    if (content === null) continue;
+
+    const findings = scanFile(file, content);
+    allFindings.push(...findings);
+  }
+
+  if (allFindings.length > 0) {
     // Block the operation and report findings
-    const findingsSummary = scanResult.findings.join('\n');
+    const findingsSummary = formatFindings(allFindings);
 
     const output = {
       hookSpecificOutput: {
         hookEventName: 'PreToolUse',
         permissionDecision: 'deny',
-        permissionDecisionReason: `Gitleaks detected secrets in staged files:\n\n${findingsSummary}\n\nRemove secrets from staged files or use 'git restore --staged <file>' to unstage.\n\nGitleaks output:\n${scanResult.rawOutput}`,
+        permissionDecisionReason: `Gitleaks detected secrets in staged files:${findingsSummary}\n\nRemove secrets from staged files or use 'git restore --staged <file>' to unstage.`,
       },
     };
 
     console.log(JSON.stringify(output));
-    console.error('GITLEAKS BLOCKED:', findingsSummary);
-  } else {
+    console.error(`GITLEAKS BLOCKED: ${allFindings.length} secrets found`);
     process.exit(0);
   }
+
+  console.error('Gitleaks: No secrets found');
+  process.exit(0);
 }
 
 main();
