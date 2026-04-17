@@ -13,7 +13,7 @@ No external dependencies. Zero configuration. Works out of the box.
 ```
 You: /commit "fix auth bug"
     ↓
-Plugin scans staged files with 222 secret detection patterns
+Plugin scans staged files with 54 secret detection patterns
     ↓
 [AWS keys, GitHub tokens, Slack webhooks, OpenAI keys, etc.]
     ↓
@@ -28,14 +28,14 @@ Plugin scans staged files with 222 secret detection patterns
 | Full repo scan (gitleaks CLI) | Slow (minutes) | `brew install gitleaks` | Binary + Python |
 | **This plugin** | **Fast (seconds)** | **Zero** | **Node.js only** |
 
-- **Zero dependencies** — All 222 gitleaks patterns are embedded in pure JavaScript
+- **Zero dependencies** — All 54 gitleaks patterns are embedded in pure JavaScript
 - **Staged files only** — Scans only what you're about to commit (not full history)
 - **Works offline** — No external API calls or network requests
 - **Claude Code native** — Uses PreToolUse hook system, no extra configuration
 
 ## Secret Types Detected
 
-The embedded scanner covers **222 secret patterns** including:
+The embedded scanner covers **54 secret patterns** including:
 
 - **Cloud Providers**: AWS, Azure, GCP, DigitalOcean, Alibaba, Cloudflare
 - **AI Services**: OpenAI, Anthropic, Cohere, Hugging Face
@@ -105,7 +105,7 @@ claude-code-gitleaks/
 ├── hooks/
 │   ├── hooks.json            # PreToolUse hook configuration
 │   ├── pre_bash.js           # Hook script
-│   └── rules.js              # 222 embedded secret detection patterns
+│   └── rules.js              # 54 embedded secret detection patterns
 └── README.md
 ```
 
@@ -114,7 +114,7 @@ claude-code-gitleaks/
 1. **PreToolUse Hook** — Claude Code calls the hook before executing `Bash(git commit)`
 2. **Staged File Extraction** — Uses `git diff --cached --name-only` to get staged files
 3. **Content Retrieval** — Uses `git show :<filepath>` to read staged content
-4. **Pattern Matching** — Runs 222 regex patterns against file contents
+4. **Pattern Matching** — Runs 54 regex patterns against file contents
 5. **Block/Allow Decision** — Returns `permissionDecision: "deny"` with findings if match found
 
 ## Comparison: This Plugin vs Alternatives
@@ -126,7 +126,7 @@ claude-code-gitleaks/
 | Scan scope | Full repo | Full repo | **Staged only** |
 | Pre-commit hook | Yes | Yes | **Yes** |
 | Zero config | No | No | **Yes** |
-| Embedded rules | No | No | **Yes (222)** |
+| Embedded rules | No | No | **Yes (54)** |
 
 ## Contributing
 
