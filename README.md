@@ -48,23 +48,13 @@ The embedded scanner covers **54 secret patterns** including:
 
 ## Installation
 
-### 1. Clone or copy this plugin to your project
-
-```bash
-# Option A: Clone as a submodule or copy the plugin directory
-git clone https://github.com/saravananravi08/claude-code-gitleaks.git .claude-plugin/
-
-# Option B: Reference it in your Claude Code configuration
-# Add the plugin path to your claude_desktop_config.json
+```
+/plugin marketplace add https://github.com/saravananravi08/claude-code-gitleaks
+/plugin install gitleaks@claude-code-gitleaks
+/reload-plugins
 ```
 
-### 2. Ensure Node.js is available
-
-Node.js 18+ is already pre-installed on macOS, Linux, and Windows.
-
-### 3. That's it — no other setup needed
-
-The plugin auto-activates when Claude Code runs in a directory with the plugin configured.
+That's it — plugin auto-activates when Claude Code runs in a project with the hooks configured.
 
 ## Commands Protected
 
