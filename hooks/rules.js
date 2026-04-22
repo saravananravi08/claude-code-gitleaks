@@ -96,7 +96,7 @@ const RULES = [
   { id: 'linear-api-key', regex: /lin_[a-zA-Z0-9]{43}/, desc: 'Linear API Token' },
 
   // Algolia
-  { id: 'algolia-api-key', regex: /[a-zA-Z0-9]{32}/, desc: 'Algolia API Key' },
+  { id: 'algolia-api-key', regex: /ALGolia[a-zA-Z0-9]{32}/i, desc: 'Algolia API Key' },
 
   // Sentry DSN
   { id: 'sentry-dsn', regex: /https:\/\/[a-f0-9]{32}@[a-z0-9.-]+\/sentry\/\d+/i, desc: 'Sentry DSN' },
